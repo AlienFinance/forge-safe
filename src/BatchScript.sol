@@ -521,10 +521,6 @@ abstract contract BatchScript is Script {
     }
 
     function _uintToString(uint256 value_) private pure returns (string memory) {
-        return string.concat(
-            "\"",
-            vm.toString(value_),
-            "\""
-        );
+        return vm.toString(value_);
     }
 }
