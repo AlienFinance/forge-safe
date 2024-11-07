@@ -112,8 +112,8 @@ abstract contract BatchScript is Script {
             SAFE_API_BASE_URL = "https://safe-transaction-avalanche.safe.global/api/v1/safes/";
             SAFE_MULTISEND_ADDRESS = 0xA238CBeb142c10Ef7Ad8442C6D1f9E89e07e7761;
         } else if (chainId == 81457 ) {
-            SAFE_API_BASE_URL = "https://gateway.blast-safe.io/v1/chains/81457/";
-            SAFE_MULTISEND_ADDRESS = 0x40A2aCCbd92BCA938b02010E17A5b8929b49130D;
+            SAFE_API_BASE_URL = "https://safe-transaction-blast.safe.global/api/v1/safes/";
+            SAFE_MULTISEND_ADDRESS = 0xA238CBeb142c10Ef7Ad8442C6D1f9E89e07e7761;
         } else {
             revert("Unsupported chain");
         }
@@ -280,23 +280,13 @@ abstract contract BatchScript is Script {
 
         // Create json payload for API call to Gnosis transaction service
         string memory placeholder = "";
-        if (chainId == 81457) {
-            placeholder.serialize("safeTxHash", batch_.txHash);
-            placeholder.serialize("origin", _uintToString(0));
-            placeholder.serialize("value", _uintToString(batch_.value));
-            placeholder.serialize("safeTxGas", _uintToString(batch_.safeTxGas));
-            placeholder.serialize("baseGas", _uintToString(batch_.baseGas));
-            placeholder.serialize("gasPrice", _uintToString(batch_.gasPrice));
-            placeholder.serialize("nonce", _uintToString(batch_.nonce));
-        } else {
-            placeholder.serialize("contractTransactionHash", batch_.txHash);
-            placeholder.serialize("safe", safe_);
-            placeholder.serialize("value", batch_.value);
-            placeholder.serialize("safeTxGas", batch_.safeTxGas);
-            placeholder.serialize("baseGas", batch_.baseGas);
-            placeholder.serialize("gasPrice", batch_.gasPrice);
-            placeholder.serialize("nonce", batch_.nonce);
-        }
+        placeholder.serialize("contractTransactionHash", batch_.txHash);
+        placeholder.serialize("safe", safe_);
+        placeholder.serialize("value", batch_.value);
+        placeholder.serialize("safeTxGas", batch_.safeTxGas);
+        placeholder.serialize("baseGas", batch_.baseGas);
+        placeholder.serialize("gasPrice", batch_.gasPrice);
+        placeholder.serialize("nonce", batch_.nonce);
         placeholder.serialize("to", batch_.to);
         placeholder.serialize("data", batch_.data);
         placeholder.serialize("operation", uint256(batch_.operation));
@@ -311,7 +301,7 @@ abstract contract BatchScript is Script {
             payload
         );
 
-        if (status == 201 || (status == 200 && chainId == 81457)) {
+        if (status == 201) {
             console2.log("Batch sent successfully");
         } else {
             console2.log(string(data));
@@ -463,52 +453,27 @@ abstract contract BatchScript is Script {
     }
 
     function _getNonce(address safe_) private returns (uint256) {
-        if (chainId == 81457) {
-            string memory endpoint = string.concat(
-                SAFE_API_BASE_URL,
-                "safes/",
-                vm.toString(safe_),
-                "/nonces"
-            );
-            (uint256 status, bytes memory data) = endpoint.get();
-            if (status == 200) {
-                string memory resp = string(data);
-                return resp.readUint(".recommendedNonce");
-            } else {
-                revert("Get nonce failed!");
-            }
+        string memory endpoint = string.concat(
+            _getSafeAPIEndpoint(safe_),
+            "?limit=1"
+        );
+        (uint256 status, bytes memory data) = endpoint.get();
+        if (status == 200) {
+            string memory resp = string(data);
+            return resp.readUint(".results[0].nonce") + 1;
         } else {
-            string memory endpoint = string.concat(
-                _getSafeAPIEndpoint(safe_),
-                "?limit=1"
-            );
-            (uint256 status, bytes memory data) = endpoint.get();
-            if (status == 200) {
-                string memory resp = string(data);
-                return resp.readUint(".results[0].nonce") + 1;
-            } else {
-                revert("Get nonce failed!");
-            }
+            revert("Get nonce failed!");
         }
     }
 
     function _getSafeAPIEndpoint(
         address safe_
     ) private view returns (string memory) {
-        if (chainId == 81457) {
-            return string.concat(
-                SAFE_API_BASE_URL,
-                "transactions/",
-                vm.toString(safe_),
-                "/propose"
-            );
-        }
-        return
-            string.concat(
-                SAFE_API_BASE_URL,
-                vm.toString(safe_),
-                SAFE_API_MULTISIG_SEND
-            );
+        return string.concat(
+            SAFE_API_BASE_URL,
+            vm.toString(safe_),
+            SAFE_API_MULTISIG_SEND
+        );
     }
 
     function _getHeaders() private pure returns (string[] memory) {
